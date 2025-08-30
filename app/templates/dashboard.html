@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 EKS AI Troubleshooter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .header { background: rgba(35, 47, 62, 0.95); color: white; padding: 1rem; text-align: center; backdrop-filter: blur(10px); }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .header p { opacity: 0.9; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .card { background: rgba(255, 255, 255, 0.95); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 8px 32px rgba(0,0,0,0.1); backdrop-filter: blur(10px); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+        .btn { background: linear-gradient(45deg, #ff9900, #ff6600); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255, 153, 0, 0.3); }
+        .btn-secondary { background: linear-gradient(45deg, #667eea, #764ba2); }
+        .status { padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; font-weight: bold; }
+        .status.healthy { background: #d4edda; color: #155724; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.connected { background: #d1ecf1; color: #0c5460; }
+        .logs { background: #1e1e1e; color: #00ff00; padding: 1rem; border-radius: 8px; height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.9rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #333; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 2px solid #e0e0e0; border-radius: 8px; transition: border-color 0.3s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+        .issue { border-left: 4px solid #dc3545; padding: 1rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 0 8px 8px 0; }
+        .issue.high { border-left-color: #dc3545; }
+        .issue.medium { border-left-color: #ffc107; }
+        .issue.low { border-left-color: #28a745; }
+        .recommendation { border-left: 4px solid #28a745; padding: 1rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 0 8px 8px 0; }
+        .command { background: #e9ecef; padding: 0.75rem; border-radius: 6px; font-family: 'Courier New', monospace; margin-top: 0.5rem; font-size: 0.9rem; }
+        .insight { background: linear-gradient(45deg, #667eea, #764ba2); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: bold; }
+        .loading { text-align: center; padding: 2rem; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .metric-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 1.5rem; text-align: center; }
+        .metric-value { font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .metric-label { font-size: 1rem; opacity: 0.9; }
+        .rag-section { background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%); color: white; border-radius: 12px; padding: 1.5rem; }
+        .rag-result { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; }
+        .tabs { display: flex; margin-bottom: 1rem; }
+        .tab { padding: 0.75rem 1.5rem; background: #f8f9fa; border: none; cursor: pointer; border-radius: 8px 8px 0 0; margin-right: 0.25rem; }
+        .tab.active { background: #667eea; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 EKS AI Troubleshooter</h1>
+        <p>Intelligent Kubernetes Troubleshooting with RAG-Enhanced Knowledge Base</p>
+    </div>
+
+    <div class="container">
+        <!-- Health Status -->
+        <div class="card">
+            <div class="grid-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="healthStatus">🔄</div>
+                    <div class="metric-label">System Health</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="clusterStatus">Disconnected</div>
+                    <div class="metric-label">Cluster Status</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="ragStatus">🧠</div>
+                    <div class="metric-label">RAG Knowledge Base</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Section -->
+        <div class="card">
+            <h2>🔗 Cluster Connection</h2>
+            <div class="grid">
+                <div class="form-group">
+                    <label>Cluster Name:</label>
+                    <input type="text" id="clusterName" placeholder="my-eks-cluster">
+                </div>
+                <div class="form-group">
+                    <label>Region:</label>
+                    <input type="text" id="region" placeholder="us-west-2">
+                </div>
+            </div>
+            <button class="btn" onclick="connectCluster()">🚀 Connect to Cluster</button>
+            <div id="connectionStatus"></div>
+        </div>
+
+        <!-- Main Analysis Section -->
+        <div class="grid">
+            <div class="card">
+                <h2>📊 Cluster Analysis</h2>
+                <div class="form-group">
+                    <label>Namespace:</label>
+                    <select id="namespace">
+                        <option value="default">default</option>
+                        <option value="kube-system">kube-system</option>
+                        <option value="all">All Namespaces</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="analyzeCluster()">🔍 Analyze Cluster</button>
+                <button class="btn btn-secondary" onclick="getCostOptimization()">💰 Cost Tips</button>
+                <div id="analysisResults"></div>
+            </div>
+
+            <div class="card">
+                <h2>🎯 RAG Knowledge Query</h2>
+                <div class="form-group">
+                    <label>Ask the AI:</label>
+                    <input type="text" id="ragQuery" placeholder="How to fix CrashLoopBackOff?">
+                </div>
+                <button class="btn btn-secondary" onclick="queryRAG()">🧠 Query Knowledge Base</button>
+                <div id="ragResults"></div>
+            </div>
+        </div>
+
+        <!-- Tabs Section -->
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('pods')">📦 Pods</button>
+                <button class="tab" onclick="showTab('issues')">🚨 Issues</button>
+                <button class="tab" onclick="showTab('recommendations')">💡 Recommendations</button>
+                <button class="tab" onclick="showTab('insights')">🔮 AI Insights</button>
+                <button class="tab" onclick="showTab('logs')">📋 Live Logs</button>
+            </div>
+
+            <div id="pods" class="tab-content active">
+                <h3>Pod Overview</h3>
+                <button class="btn" onclick="loadPods()">🔄 Refresh Pods</button>
+                <div id="podsList"></div>
+            </div>
+
+            <div id="issues" class="tab-content">
+                <h3>Detected Issues</h3>
+                <div id="issuesList">No issues detected yet. Run cluster analysis first.</div>
+            </div>
+
+            <div id="recommendations" class="tab-content">
+                <h3>AI Recommendations</h3>
+                <div id="recommendationsList">No recommendations available. Run cluster analysis first.</div>
+            </div>
+
+            <div id="insights" class="tab-content">
+                <h3>AI-Powered Insights</h3>
+                <div id="insightsList">No insights available. Run cluster analysis first.</div>
+            </div>
+
+            <div id="logs" class="tab-content">
+                <h3>Live Pod Logs</h3>
+                <div class="form-group">
+                    <label>Pod Name:</label>
+                    <input type="text" id="podName" placeholder="Enter pod name">
+                </div>
+                <button class="btn" onclick="streamLogs()">📡 Stream Logs</button>
+                <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
+                <div id="logs" class="logs">Logs will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        // Initialize dashboard
+        window.onload = function() {
+            checkHealth();
+            setInterval(checkHealth, 30000); // Check health every 30 seconds
+        };
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const health = await response.json();
+                
+                document.getElementById('healthStatus').textContent = health.status === 'healthy' ? '✅' : '❌';
+                document.getElementById('clusterStatus').textContent = health.cluster_connected ? health.current_cluster || 'Connected' : 'Disconnected';
+                document.getElementById('ragStatus').textContent = health.rag_knowledge_base?.status === 'ready' ? '🧠✅' : '🧠⚠️';
+            } catch (error) {
+                document.getElementById('healthStatus').textContent = '❌';
+            }
+        }
+
+        async function connectCluster() {
+            const clusterName = document.getElementById('clusterName').value;
+            const region = document.getElementById('region').value;
+            
+            if (!clusterName || !region) {
+                alert('Please enter cluster name and region');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cluster_name: clusterName, region: region })
+                });
+
+                const result = await response.json();
+                const statusDiv = document.getElementById('connectionStatus');
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `<div class="status connected">✅ ${result.message}</div>`;
+                    checkHealth();
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ ${result.detail}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('connectionStatus').innerHTML = 
+                    `<div class="status error">❌ Connection failed: ${error.message}</div>`;
+            }
+        }
+
+        async function analyzeCluster() {
+            const namespace = document.getElementById('namespace').value;
+            
+            try {
+                document.getElementById('analysisResults').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyzing cluster with AI...</p></div>';
+                
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ namespace: namespace === 'all' ? 'default' : namespace })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayAnalysisResults(result);
+                } else {
+                    document.getElementById('analysisResults').innerHTML = 
+                        `<div class="status error">Analysis failed: ${result.detail}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('analysisResults').innerHTML = 
+                    `<div class="status error">Analysis failed: ${error.message}</div>`;
+            }
+        }
+
+        function displayAnalysisResults(result) {
+            const statusClass = result.cluster_health === 'healthy' ? 'healthy' : 'warning';
+            document.getElementById('analysisResults').innerHTML = 
+                `<div class="status ${statusClass}">🏥 Cluster Health: ${result.cluster_health}</div>`;
+
+            // Display issues
+            if (result.issues.length > 0) {
+                const issuesHtml = result.issues.map(issue => `
+                    <div class="issue ${issue.severity}">
+                        <strong>🚨 ${issue.type}</strong> - <span class="status ${issue.severity}">${issue.severity}</span>
+                        <br><strong>Resource:</strong> ${issue.resource}
+                        <br><strong>Description:</strong> ${issue.description}
+                    </div>
+                `).join('');
+                document.getElementById('issuesList').innerHTML = issuesHtml;
+            } else {
+                document.getElementById('issuesList').innerHTML = '<div class="status healthy">✅ No issues detected!</div>';
+            }
+
+            // Display recommendations
+            if (result.recommendations.length > 0) {
+                const recsHtml = result.recommendations.map(rec => `
+                    <div class="recommendation">
+                        <strong>💡 ${rec.action}</strong>
+                        <br>${rec.description}
+                        ${rec.command ? `<div class="command">$ ${rec.command}</div>` : ''}
+                    </div>
+                `).join('');
+                document.getElementById('recommendationsList').innerHTML = recsHtml;
+            } else {
+                document.getElementById('recommendationsList').innerHTML = '<div class="status healthy">✅ No recommendations needed!</div>';
+            }
+
+            // Display insights
+            if (result.insights && result.insights.length > 0) {
+                const insightsHtml = result.insights.map(insight => `
+                    <div class="insight">🔮 ${insight}</div>
+                `).join('');
+                document.getElementById('insightsList').innerHTML = insightsHtml;
+            } else {
+                document.getElementById('insightsList').innerHTML = '<div class="status">🔮 No insights available</div>';
+            }
+        }
+
+        async function queryRAG() {
+            const query = document.getElementById('ragQuery').value;
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+
+            try {
+                document.getElementById('ragResults').innerHTML = '<div class="loading"><div class="spinner"></div><p>Querying AI knowledge base...</p></div>';
+                
+                const response = await fetch(`/api/rag/query?q=${encodeURIComponent(query)}&limit=3`);
+                const result = await response.json();
+                
+                if (response.ok && result.results.length > 0) {
+                    const resultsHtml = result.results.map(res => `
+                        <div class="rag-result">
+                            <strong>📚 Relevance: ${(res.relevance_score * 100).toFixed(1)}%</strong>
+                            <p>${res.content.substring(0, 300)}...</p>
+                        </div>
+                    `).join('');
+                    document.getElementById('ragResults').innerHTML = resultsHtml;
+                } else {
+                    document.getElementById('ragResults').innerHTML = '<div class="status warning">⚠️ No relevant information found</div>';
+                }
+            } catch (error) {
+                document.getElementById('ragResults').innerHTML = `<div class="status error">❌ Query failed: ${error.message}</div>`;
+            }
+        }
+
+        async function getCostOptimization() {
+            try {
+                const response = await fetch('/api/cost-optimization');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const tipsHtml = result.tips.map(tip => `
+                        <div class="insight">💰 ${tip.content.substring(0, 200)}...</div>
+                    `).join('');
+                    document.getElementById('analysisResults').innerHTML = `
+                        <div class="rag-section">
+                            <h3>💰 Cost Optimization Tips</h3>
+                            <p><strong>Estimated Savings:</strong> ${result.estimated_savings}</p>
+                            <p><strong>Current Setup:</strong> ${result.current_setup}</p>
+                            ${tipsHtml}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Cost optimization error:', error);
+            }
+        }
+
+        async function loadPods() {
+            const namespace = document.getElementById('namespace').value;
+            
+            try {
+                const response = await fetch(`/api/pods/${namespace === 'all' ? 'default' : namespace}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayPods(result.pods);
+                } else {
+                    document.getElementById('podsList').innerHTML = 
+                        `<div class="status error">Failed to load pods</div>`;
+                }
+            } catch (error) {
+                document.getElementById('podsList').innerHTML = 
+                    `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayPods(pods) {
+            if (pods.length === 0) {
+                document.getElementById('podsList').innerHTML = '<p>No pods found</p>';
+                return;
+            }
+
+            const table = `
+                <table>
+                    <thead>
+                        <tr><th>Name</th><th>Status</th><th>Ready</th><th>Restarts</th><th>Age</th><th>Node</th></tr>
+                    </thead>
+                    <tbody>
+                        ${pods.map(pod => `
+                            <tr>
+                                <td>${pod.name}</td>
+                                <td><span class="status ${pod.status.toLowerCase()}">${pod.status}</span></td>
+                                <td>${pod.ready}</td>
+                                <td>${pod.restarts}</td>
+                                <td>${pod.age}</td>
+                                <td>${pod.node || 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('podsList').innerHTML = table;
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function streamLogs() {
+            const podName = document.getElementById('podName').value;
+            const namespace = document.getElementById('namespace').value || 'default';
+            
+            if (!podName) {
+                alert('Please enter a pod name');
+                return;
+            }
+
+            if (ws) {
+                ws.close();
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs/${namespace}/${podName}`);
+            
+            ws.onmessage = function(event) {
+                const logsDiv = document.getElementById('logs');
+                logsDiv.innerHTML += event.data + '\n';
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            };
+
+            ws.onerror = function(error) {
+                document.getElementById('logs').innerHTML += `❌ Error: ${error}\n`;
+            };
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
