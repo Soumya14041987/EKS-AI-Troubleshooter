@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  eks-ai-troubleshooter:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_REGION=us-west-2
+      - ENABLE_RAG=true
+      - DEBUG=false
+    volumes:
+      - ~/.aws:/root/.aws:ro
+      - ~/.kube:/root/.kube:ro
+      - ./knowledge_base:/app/knowledge_base
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
